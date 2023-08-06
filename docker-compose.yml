@@ -1,0 +1,85 @@
+version: '3'
+
+services:
+  web:
+    container_name: web
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ./:/var/www/html
+      - ./docker/conf/php/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./docker/conf/apache/apache2.conf:/etc/apache2/apache2.conf
+    depends_on:
+      - database
+      - cache
+    ports:
+      - '8080:80'
+    expose:
+      - '9000'
+    environment:
+      XDEBUG_CONFIG: 'client_host=host.docker.internal'
+      PHP_IDE_CONFIG: 'serverName=appserver'
+    networks:
+      - web
+
+  database:
+    image: mysql:8
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: drupal9
+      MYSQL_USERNAME: drupal9
+      MYSQL_PASSWORD: drupal9
+      MYSQL_ROOT_PASSWORD: drupal9
+      MYSQL_ALLOW_EMPTY_PASSWORD: true
+    ports:
+      - '3306:3306'
+    volumes:
+      - drupaldb:/var/lib/mysql
+    networks:
+      - web
+
+  cache:
+    image: 'redis:alpine'
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'drupalredis:/data'
+    restart: unless-stopped
+    networks:
+      - web
+
+  solr:
+    image: bitnami/solr:8
+    ports:
+      - '8983:8983'
+    volumes:
+      - solrdata:/var/solr
+      - ./solr/solr_8.x_config:/var/solr/conf
+    environment:
+      SOLR_CORES: web
+      SOLR_CORE_CONF_DIR: /var/solr/conf
+    networks:
+      - web
+
+  mailhog_app:
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'
+    ports:
+      - 1025:1025
+      - 8025:8025
+    networks:
+      - web
+
+volumes:
+  drupaldb:
+    driver: local
+  solrdata:
+    driver: local
+  drupalredis:
+    driver: local
+
+networks:
+  web:
+    driver: bridge

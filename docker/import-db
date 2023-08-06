@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./vm mysql -h database -u root --password="drupal9" drupal9 < "$1";
